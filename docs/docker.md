@@ -14,10 +14,19 @@
 docker compose up --build
 ```
 
+Subsequent runs (images already built):
+
+```bash
+docker compose up
+```
+
 The API/worker also run `ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS deleted_at ...` on boot (see `syncModels`). For versioned schema changes from scratch, you can run `npm run migrate` against the same `DATABASE_URL` (see `migrations/` and `.sequelizerc`).
 
-- API: `http://localhost:3000`
+- **API + web tester:** `http://localhost:3000` (redirects to `/demo.html`)
+- **Tester only:** `http://localhost:3000/demo.html`
 - Postgres: `localhost:5432` (`postgres` / `postgres`, database `pipeline`)
+
+See [how-to.md](how-to.md) for using the GUI and manual test flows.
 
 ## Volume
 

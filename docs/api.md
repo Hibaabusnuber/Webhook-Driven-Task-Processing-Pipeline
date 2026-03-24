@@ -2,6 +2,8 @@
 
 Base URL (Docker): `http://localhost:3000`
 
+**Interactive testing:** after `docker compose up`, open **[http://localhost:3000/demo.html](http://localhost:3000/demo.html)** for forms and buttons that call these endpoints (see [how-to.md](how-to.md)).
+
 All JSON bodies use `Content-Type: application/json`.
 
 ## Health & metrics

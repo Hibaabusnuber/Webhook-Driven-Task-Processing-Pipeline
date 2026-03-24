@@ -1,3 +1,4 @@
+import path from 'path';
 import express from 'express';
 import http from 'http';
 import pipelinesRouter from './api/pipelines';
@@ -41,6 +42,12 @@ export function createApp(): express.Express {
   app.use('/pipelines', subscribersRouter);
   app.use('/webhooks', webhooksRouter);
   app.use('/jobs', jobsRouter);
+
+  const publicDir = path.join(__dirname, '..', 'public');
+  app.get('/', (_req, res) => {
+    res.redirect(302, '/demo.html');
+  });
+  app.use(express.static(publicDir));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
