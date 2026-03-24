@@ -37,6 +37,10 @@ flowchart LR
 | `src/services/delivery.ts` | Axios POST with exponential backoff + persistence per attempt. |
 | `src/models/*` | Sequelize models and associations (CASCADE deletes where appropriate). |
 
+## Web tester
+
+Express serves `public/demo.html` as static assets; **`GET /`** redirects there so a browser can drive the same REST surface as [api.md](api.md) after **`docker compose up`**. See [how-to.md](how-to.md).
+
 ## Observability extras
 
 - Structured **Winston** logs on API and worker.

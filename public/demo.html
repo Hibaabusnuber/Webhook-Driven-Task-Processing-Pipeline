@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pipeline API — manual tester</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4d;
+      --text: #e7edf5;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --ok: #3fb950;
+      --warn: #d29922;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: ui-sans-serif, system-ui, Segoe UI, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      line-height: 1.5;
+      padding: 1rem 1.25rem 3rem;
+      max-width: 960px;
+      margin-inline: auto;
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 0.5rem; }
+    h2 { font-size: 1rem; color: var(--muted); margin: 1.5rem 0 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.35rem; }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    textarea { min-height: 72px; font-family: ui-monospace, monospace; }
+    .row { display: grid; gap: 0.75rem; }
+    @media (min-width: 640px) {
+      .row.cols-2 { grid-template-columns: 1fr 1fr; }
+    }
+    button {
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      margin: 0.25rem 0.35rem 0.25rem 0;
+    }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    button:hover { filter: brightness(1.08); }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
+    .toolbar input { max-width: 420px; flex: 1; }
+    #out {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      font-family: ui-monospace, monospace;
+      font-size: 0.78rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 320px;
+      overflow: auto;
+    }
+    .status { font-weight: 600; margin-bottom: 0.35rem; }
+    .status.ok { color: var(--ok); }
+    .status.err { color: #f85149; }
+    section.card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1rem;
+    }
+    #checklist label { display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; color: var(--text); font-size: 0.9rem; margin: 0.35rem 0; }
+    #checklist input[type="checkbox"] { width: auto; margin-top: 0.2rem; }
+    .hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.35rem; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <h1>Webhook pipeline — manual tester</h1>
+  <p class="hint">Served from the API. Set base URL if you open this file elsewhere. Responses appear at the bottom.</p>
+
+  <div class="toolbar">
+    <label style="flex:1;min-width:200px;margin:0">API base URL
+      <input type="text" id="baseUrl" value="" placeholder="http://localhost:3000" />
+    </label>
+    <button type="button" id="btnClearOut">Clear log</button>
+  </div>
+
+  <section class="card">
+    <h2>Quick GET (browser-safe)</h2>
+    <button type="button" class="primary" data-get="/health">GET /health</button>
+    <button type="button" class="primary" data-get="/metrics">GET /metrics</button>
+    <button type="button" data-get="/pipelines">GET /pipelines</button>
+    <button type="button" data-get="/jobs">GET /jobs</button>
+  </section>
+
+  <section class="card">
+    <h2>Pipelines</h2>
+    <div class="row cols-2">
+      <div>
+        <label>Name</label>
+        <input type="text" id="plName" value="GUI demo" />
+      </div>
+      <div>
+        <label>source_id (webhook path)</label>
+        <input type="text" id="plSource" value="gui-demo" />
+      </div>
+    </div>
+    <label>action_type</label>
+    <select id="plAction">
+      <option value="uppercase">uppercase</option>
+      <option value="reverse">reverse</option>
+      <option value="timestamp">timestamp</option>
+    </select>
+    <div>
+      <button type="button" class="primary" id="btnPlCreate">POST /pipelines (create)</button>
+    </div>
+    <div class="row cols-2" style="margin-top:0.75rem">
+      <div>
+        <label>Pipeline ID (UUID)</label>
+        <input type="text" id="plId" placeholder="paste from create response" />
+      </div>
+      <div style="align-self:end">
+        <button type="button" data-get="/pipelines/" data-append-id="plId">GET by id</button>
+        <button type="button" id="btnPlDelete">DELETE pipeline</button>
+      </div>
+    </div>
+    <label>PUT body (optional fields)</label>
+    <textarea id="plPutBody">{"name":"Updated from GUI","action_type":"reverse"}</textarea>
+    <button type="button" id="btnPlPut">PUT /pipelines/:id</button>
+  </section>
+
+  <section class="card">
+    <h2>Subscribers</h2>
+    <label>Subscriber URL (HTTPS)</label>
+    <input type="text" id="subUrl" value="https://httpbin.org/post" />
+    <button type="button" class="primary" id="btnSubCreate">POST subscriber</button>
+    <div class="row cols-2" style="margin-top:0.75rem">
+      <div>
+        <label>Subscriber ID (for delete)</label>
+        <input type="text" id="subId" placeholder="from POST response" />
+      </div>
+      <div style="align-self:end">
+        <button type="button" id="btnSubList">GET subscribers</button>
+        <button type="button" id="btnSubDelete">DELETE subscriber</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Webhooks</h2>
+    <label>source_id (must match pipeline)</label>
+    <input type="text" id="whSource" value="gui-demo" />
+    <label>JSON body</label>
+    <textarea id="whBody">{"msg":"hello from GUI"}</textarea>
+    <button type="button" class="primary" id="btnWh">POST /webhooks/:source_id</button>
+  </section>
+
+  <section class="card">
+    <h2>Jobs</h2>
+    <div class="row cols-2">
+      <div>
+        <label>Job ID</label>
+        <input type="text" id="jobId" placeholder="from webhook 202 response" />
+      </div>
+      <div>
+        <label>Filter list by pipeline_id (optional)</label>
+        <input type="text" id="jobFilterPl" placeholder="UUID" />
+      </div>
+    </div>
+    <button type="button" class="primary" id="btnJobGet">GET /jobs/:id</button>
+    <button type="button" id="btnJobList">GET /jobs</button>
+    <button type="button" id="btnJobListF">GET /jobs?pipeline_id=…</button>
+  </section>
+
+  <section class="card">
+    <h2>Checklist (saved in this browser)</h2>
+    <p class="hint">Tick items as you complete manual tests. Aligns with <code>docs/how-to.md</code> in the repo.</p>
+    <div id="checklist"></div>
+    <button type="button" id="btnResetChecklist">Reset checklist</button>
+  </section>
+
+  <div id="out" aria-live="polite"><span class="muted">Responses will appear here.</span></div>
+
+  <script>
+    (function () {
+      const baseInput = document.getElementById('baseUrl');
+      const out = document.getElementById('out');
+      const STORAGE_KEY = 'pipeline-demo-checklist';
+
+      function base() {
+        let b = baseInput.value.trim() || window.location.origin;
+        return b.replace(/\/$/, '');
+      }
+
+      if (!baseInput.value) {
+        baseInput.value = window.location.origin;
+      }
+
+      function log(msg, isErr) {
+        const line = typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2);
+        const stamp = new Date().toISOString();
+        const prev = out.textContent && out.textContent.includes('Responses') ? '' : out.textContent + '\n\n';
+        out.innerHTML =
+          prev +
+          '<span class="status ' +
+          (isErr ? 'err' : 'ok') +
+          '">[' +
+          stamp +
+          ']</span>\n' +
+          line.replace(/</g, '&lt;');
+        out.scrollTop = out.scrollHeight;
+      }
+
+      async function req(method, path, body) {
+        const url = base() + path;
+        const opts = { method, headers: { Accept: 'application/json' } };
+        if (body !== undefined) {
+          opts.headers['Content-Type'] = 'application/json';
+          opts.body = typeof body === 'string' ? body : JSON.stringify(body);
+        }
+        try {
+          const r = await fetch(url, opts);
+          const text = await r.text();
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch {
+            data = text;
+          }
+          log(
+            method +
+              ' ' +
+              path +
+              ' → HTTP ' +
+              r.status +
+              '\n' +
+              (typeof data === 'string' ? data : JSON.stringify(data, null, 2)),
+            r.status >= 400
+          );
+          return { r, data };
+        } catch (e) {
+          log(String(e), true);
+          throw e;
+        }
+      }
+
+      document.getElementById('btnClearOut').onclick = function () {
+        out.textContent = '';
+      };
+
+      document.querySelectorAll('[data-get]').forEach(function (btn) {
+        btn.onclick = function () {
+          let p = btn.getAttribute('data-get');
+          const aid = btn.getAttribute('data-append-id');
+          if (aid) {
+            const id = document.getElementById(aid).value.trim();
+            if (!id) {
+              log('Fill ' + aid + ' first', true);
+              return;
+            }
+            p = p + id;
+          }
+          req('GET', p);
+        };
+      });
+
+      document.getElementById('btnPlCreate').onclick = function () {
+        const body = {
+          name: document.getElementById('plName').value,
+          source_id: document.getElementById('plSource').value,
+          action_type: document.getElementById('plAction').value,
+        };
+        req('POST', '/pipelines', body).then(function (res) {
+          if (res && res.data && res.data.id) {
+            document.getElementById('plId').value = res.data.id;
+          }
+        });
+      };
+
+      document.getElementById('btnPlPut').onclick = function () {
+        const id = document.getElementById('plId').value.trim();
+        if (!id) return log('Pipeline ID required', true);
+        let body;
+        try {
+          body = JSON.parse(document.getElementById('plPutBody').value);
+        } catch (e) {
+          return log('PUT body must be valid JSON', true);
+        }
+        req('PUT', '/pipelines/' + id, body);
+      };
+
+      document.getElementById('btnPlDelete').onclick = function () {
+        const id = document.getElementById('plId').value.trim();
+        if (!id) return log('Pipeline ID required', true);
+        req('DELETE', '/pipelines/' + id);
+      };
+
+      document.getElementById('btnSubCreate').onclick = function () {
+        const pid = document.getElementById('plId').value.trim();
+        if (!pid) return log('Pipeline ID required (create a pipeline first)', true);
+        req('POST', '/pipelines/' + pid + '/subscribers', {
+          url: document.getElementById('subUrl').value,
+        }).then(function (res) {
+          if (res && res.data && res.data.id) {
+            document.getElementById('subId').value = res.data.id;
+          }
+        });
+      };
+
+      document.getElementById('btnSubList').onclick = function () {
+        const pid = document.getElementById('plId').value.trim();
+        if (!pid) return log('Pipeline ID required', true);
+        req('GET', '/pipelines/' + pid + '/subscribers');
+      };
+
+      document.getElementById('btnSubDelete').onclick = function () {
+        const pid = document.getElementById('plId').value.trim();
+        const sid = document.getElementById('subId').value.trim();
+        if (!pid || !sid) return log('Pipeline ID and Subscriber ID required', true);
+        req('DELETE', '/pipelines/' + pid + '/subscribers/' + sid);
+      };
+
+      document.getElementById('btnWh').onclick = function () {
+        const s = document.getElementById('whSource').value.trim();
+        if (!s) return log('source_id required', true);
+        let body;
+        try {
+          body = JSON.parse(document.getElementById('whBody').value);
+        } catch (e) {
+          return log('Webhook body must be valid JSON', true);
+        }
+        req('POST', '/webhooks/' + encodeURIComponent(s), body).then(function (res) {
+          if (res && res.data && res.data.job_id) {
+            document.getElementById('jobId').value = res.data.job_id;
+          }
+        });
+      };
+
+      document.getElementById('btnJobGet').onclick = function () {
+        const id = document.getElementById('jobId').value.trim();
+        if (!id) return log('Job ID required', true);
+        req('GET', '/jobs/' + id);
+      };
+
+      document.getElementById('btnJobList').onclick = function () {
+        req('GET', '/jobs');
+      };
+
+      document.getElementById('btnJobListF').onclick = function () {
+        const pid = document.getElementById('jobFilterPl').value.trim();
+        if (!pid) return log('pipeline_id for filter required', true);
+        req('GET', '/jobs?pipeline_id=' + encodeURIComponent(pid));
+      };
+
+      const items = [
+        'GET /health and /metrics',
+        'POST /pipelines → copy pipeline id',
+        'GET /pipelines and GET /pipelines/:id',
+        'POST /subscribers (httpbin URL) → copy subscriber id',
+        'POST /webhooks/:source_id → copy job_id',
+        'Poll GET /jobs/:id until status success',
+        'GET /jobs?pipeline_id=…',
+        'DELETE subscriber → list empty → webhook still succeeds without delivery',
+        'DELETE pipeline',
+      ];
+
+      function renderChecklist() {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        const wrap = document.getElementById('checklist');
+        wrap.innerHTML = items
+          .map(function (text, i) {
+            const id = 'ck' + i;
+            const checked = saved[id] ? ' checked' : '';
+            return (
+              '<label><input type="checkbox" id="' +
+              id +
+              '"' +
+              checked +
+              ' /> ' +
+              text.replace(/</g, '&lt;') +
+              '</label>'
+            );
+          })
+          .join('');
+        wrap.querySelectorAll('input').forEach(function (el) {
+          el.addEventListener('change', function () {
+            const o = {};
+            items.forEach(function (_, i) {
+              o['ck' + i] = document.getElementById('ck' + i).checked;
+            });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(o));
+          });
+        });
+      }
+
+      document.getElementById('btnResetChecklist').onclick = function () {
+        localStorage.removeItem(STORAGE_KEY);
+        renderChecklist();
+      };
+
+      renderChecklist();
+    })();
+  </script>
+</body>
+</html>

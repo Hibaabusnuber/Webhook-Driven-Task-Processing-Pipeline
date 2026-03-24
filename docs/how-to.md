@@ -1,19 +1,89 @@
-# Manual API demo & test checklist
+# Manual testing: web tester + checklist
 
-Use this guide to **manually** exercise every HTTP route and common outcomes (Postman, Insomnia, Thunder Client, or `curl`). For field definitions and response shapes, see [api.md](api.md).
-
-**Base URL:** `http://localhost:3000` (adjust host/port if needed.)
-
-Browsers only send **GET** when you use the address bar. **POST**, **PUT**, **DELETE**, and **webhooks** need **curl**, **Postman**, **Thunder Client**, etc.
+This guide matches how you **run and test** the project after **`docker compose up`** (or local `npm run dev` + worker). For raw HTTP details, see [api.md](api.md).
 
 ---
 
-## Paste in the browser address bar (GET)
+## 1. Start the full stack (Docker — recommended)
 
-Copy the whole line (no spaces). Replace `YOUR_PIPELINE_ID` and `YOUR_JOB_ID` with real UUIDs from JSON responses.
+From the project root:
 
-| What | URL to paste |
-|------|----------------|
+```bash
+docker compose up --build
+```
+
+This starts **PostgreSQL** (database `pipeline` is created by Compose), the **API** on port **3000**, and the **worker**. Jobs stay **`pending`** until the worker is up — with Compose, all three run together.
+
+- **API + web UI:** [http://localhost:3000](http://localhost:3000) (root redirects to the tester)
+- **Tester only:** [http://localhost:3000/demo.html](http://localhost:3000/demo.html)
+
+No host Node.js required for this path.
+
+**Optional — run app/worker on the host instead:** see [README.md](../README.md) (“Optional: local Node”). You still need Postgres and a `pipeline` database (`npm run db:create` if missing).
+
+---
+
+## 2. Web tester GUI (`/demo.html`)
+
+The page is **static HTML + JavaScript** served by the same Express app (no separate frontend build). It talks to the API with **`fetch`**; because it is **same-origin**, you do not need CORS.
+
+### Base URL field
+
+- Default: **`http://localhost:3000`** (filled from `window.location.origin` when you open the page from the API).
+- Change only if you access the API through another host/port (reverse proxy, tunnel).
+
+### Sections (top to bottom)
+
+| Section | What it does |
+|---------|----------------|
+| **Quick GET** | One-click `GET` for `/health`, `/metrics`, `/pipelines`, `/jobs` |
+| **Pipelines** | Create pipeline (`name`, `source_id`, `action_type`); **Pipeline ID** field for get/put/delete; PUT uses JSON textarea; DELETE pipeline |
+| **Subscribers** | POST subscriber (needs **Pipeline ID**); GET list; DELETE (needs **Subscriber ID**) |
+| **Webhooks** | POST to `/webhooks/:source_id` with JSON body; **`source_id` must match** an existing pipeline |
+| **Jobs** | GET one job by id; list all jobs; list filtered by `pipeline_id` |
+
+### Auto-filled IDs
+
+When a request succeeds, the UI copies IDs into fields when possible:
+
+- After **POST /pipelines** → **Pipeline ID**
+- After **POST subscriber** → **Subscriber ID**
+- After **POST webhook** (202) → **Job ID**
+
+Poll **GET /jobs/:id** until `status` is **`success`** (worker must be running — use Docker Compose or `npm run dev:worker`).
+
+### Response log
+
+Every action appends **HTTP status** and **body** at the bottom. Use **Clear log** to reset. Errors (4xx/5xx) are highlighted in the log.
+
+### Checklist
+
+The bottom **checklist** is stored in your browser (**`localStorage`**). Use **Reset checklist** to clear it. It is a reminder only — it does not call the API.
+
+Suggested order (aligns with a full demo):
+
+1. GET /health and /metrics (Quick GET)
+2. POST pipeline → note pipeline id
+3. POST subscriber (httpbin or similar URL)
+4. POST webhook → note job id
+5. GET job until success
+6. GET jobs with pipeline filter (optional)
+7. DELETE subscriber → list empty → optional second webhook
+8. DELETE pipeline
+
+### What the GUI does *not* cover
+
+- Some **validation error** cases (e.g. duplicate `source_id`, bad UUIDs) are easier with **curl** or by editing URLs in the address bar — see §5.
+- Automated regression: **`npm test`** (developers).
+
+---
+
+## 3. Paste in the browser address bar (GET only)
+
+Use these for quick **GET** checks or **error demos**. Replace `YOUR_PIPELINE_ID` and `YOUR_JOB_ID` with real UUIDs from the tester or API responses.
+
+| What | URL |
+|------|-----|
 | Health | `http://localhost:3000/health` |
 | Metrics | `http://localhost:3000/metrics` |
 | List pipelines | `http://localhost:3000/pipelines` |
@@ -21,12 +91,12 @@ Copy the whole line (no spaces). Replace `YOUR_PIPELINE_ID` and `YOUR_JOB_ID` wi
 | List subscribers | `http://localhost:3000/pipelines/YOUR_PIPELINE_ID/subscribers` |
 | List jobs | `http://localhost:3000/jobs` |
 | Jobs for one pipeline | `http://localhost:3000/jobs?pipeline_id=YOUR_PIPELINE_ID` |
-| One job + delivery history | `http://localhost:3000/jobs/YOUR_JOB_ID` |
+| One job + `deliveryAttempts` | `http://localhost:3000/jobs/YOUR_JOB_ID` |
 
 **Validation / error demos (GET):**
 
-| Case | URL to paste |
-|------|----------------|
+| Case | URL |
+|------|-----|
 | Bad pipeline id | `http://localhost:3000/pipelines/not-a-uuid` → **400** |
 | Missing pipeline | `http://localhost:3000/pipelines/00000000-0000-4000-8000-000000000001` → **404** |
 | Bad job id | `http://localhost:3000/jobs/not-a-uuid` → **400** |
@@ -34,178 +104,87 @@ Copy the whole line (no spaces). Replace `YOUR_PIPELINE_ID` and `YOUR_JOB_ID` wi
 | Bad `pipeline_id` query | `http://localhost:3000/jobs?pipeline_id=not-uuid` → **400** |
 | Missing pipeline (subscribers) | `http://localhost:3000/pipelines/00000000-0000-4000-8000-000000000003/subscribers` → **404** |
 
-Clickable (same links): [health](http://localhost:3000/health) · [metrics](http://localhost:3000/metrics) · [pipelines](http://localhost:3000/pipelines) · [jobs](http://localhost:3000/jobs)
+Clickable: [health](http://localhost:3000/health) · [metrics](http://localhost:3000/metrics) · [pipelines](http://localhost:3000/pipelines) · [jobs](http://localhost:3000/jobs)
 
 ---
 
-## 0. Start the stack
+## 4. Full manual checklist (API behaviour)
 
-You need **PostgreSQL**, the **`pipeline` database**, the **API**, and the **worker** (jobs stay `pending` without the worker).
+Use the **web tester**, **browser URLs** (§3), or **`curl`** as you prefer.
 
-**Option A — Docker (simplest)**
+### Health & metrics
 
-```bash
-docker compose up --build
-```
+| # | Case | Expected |
+|---|------|----------|
+| H1 | `GET /health` | **200** — `ok: true`, `service: "api"` |
+| H2 | `GET /metrics` | **200** — `jobs.*` counts |
 
-Ensure the DB exists the first time: `npm run db:create` (from the project root, with Postgres reachable).
+### Pipelines
 
-**Option B — Local Node**
+| # | Case | Expected |
+|---|------|----------|
+| P1 | `POST /pipelines` invalid body | **400** |
+| P2 | `POST /pipelines` valid | **201** |
+| P3 | Duplicate `source_id` | **409** |
+| P4 | `GET /pipelines` | **200** |
+| P5 | `GET /pipelines/not-a-uuid` | **400** |
+| P6 | `GET /pipelines/<missing-uuid>` | **404** |
+| P7 | `GET /pipelines/:id` | **200** |
+| P8 | `PUT /pipelines/:id` | **200** |
+| P9 | `PUT` missing / bad id | **404** / **400** |
+| P10 | `DELETE /pipelines/:id` | **204** |
+| P11 | `GET` after delete | **404** |
 
-1. Postgres running; `.env` with `DATABASE_URL=.../pipeline`.
-2. Terminal 1: `npm run dev`
-3. Terminal 2: `npm run dev:worker`
+### Subscribers
 
----
+| # | Case | Expected |
+|---|------|----------|
+| S1 | `POST` bad pipeline id | **400** |
+| S2 | `POST` missing pipeline | **404** |
+| S3 | `POST` invalid URL | **400** |
+| S4 | `POST` subscriber | **201** |
+| S5 | `GET` list | **200** |
+| S6 | `DELETE` | **204**; list empty |
+| S7 | `DELETE` again | **404** |
 
-## 1. Health & metrics
+### Webhooks & jobs
 
-| # | Case | Request | Expected |
-|---|------|---------|----------|
-| 1.1 | Liveness | `GET /health` | **200** — `ok: true`, `service: "api"` |
-| 1.2 | Job counters | `GET /metrics` | **200** — `jobs.pending`, `processing`, `success`, `failed` |
+| # | Case | Expected |
+|---|------|----------|
+| W1 | `POST /webhooks/unknown` | **404** |
+| W2 | `POST /webhooks/:source_id` | **202** + `job_id` |
+| J1 | `GET /jobs/:id` | **200** + `deliveryAttempts` |
+| J2 | `GET /jobs` / `?pipeline_id=` | **200** |
+| J3 | Bad UUID / query | **400** |
 
-```bash
-curl -s http://localhost:3000/health
-curl -s http://localhost:3000/metrics
-```
-
----
-
-## 2. Pipelines
-
-Set shell variables after a successful create (or paste UUIDs from JSON):
+### curl examples
 
 ```bash
 export BASE=http://localhost:3000
-# After step 2.2:
-# export PIPE_ID='<uuid from JSON>'
-# export SUB_ID='<uuid after adding subscriber>'
-# export JOB_ID='<uuid from webhook 202 response>'
-```
-
-| # | Case | Request | Expected |
-|---|------|---------|----------|
-| 2.1 | Validation error | `POST /pipelines` body `{ "name": "" }` or missing fields | **400** — `error: "Validation failed"`, `details` |
-| 2.2 | Create | `POST /pipelines` with valid `name`, `source_id`, `action_type` (`uppercase` \| `reverse` \| `timestamp`) | **201** — pipeline JSON; save `id` as `PIPE_ID` |
-| 2.3 | Duplicate `source_id` | `POST /pipelines` again with same `source_id` | **409** |
-| 2.4 | List | `GET /pipelines` | **200** — array, newest first |
-| 2.5 | Bad id | `GET /pipelines/not-a-uuid` | **400** |
-| 2.6 | Missing pipeline | `GET /pipelines/00000000-0000-4000-8000-000000000001` | **404** |
-| 2.7 | Get by id | `GET /pipelines/$PIPE_ID` | **200** |
-| 2.8 | Update | `PUT /pipelines/$PIPE_ID` e.g. `{ "name": "Updated", "action_type": "reverse" }` | **200** |
-| 2.9 | PUT missing | `PUT /pipelines/00000000-0000-4000-8000-000000000002` | **404** |
-| 2.10 | PUT bad id | `PUT /pipelines/bad-uuid` body `{}` | **400** |
-| 2.11 | Delete | `DELETE /pipelines/$PIPE_ID` | **204** |
-| 2.12 | GET after delete | `GET /pipelines/$PIPE_ID` | **404** |
-
-**Create (2.2) example:**
-
-```bash
+curl -s "$BASE/health"
 curl -s -X POST "$BASE/pipelines" -H "Content-Type: application/json" \
   -d '{"name":"Demo","source_id":"demo-src","action_type":"uppercase"}'
-```
-
-Repeat **2.2** with different `source_id` values if you already ran **2.11** and need a fresh pipeline for webhooks/subscribers.
-
----
-
-## 3. Subscribers
-
-Use a `PIPE_ID` from an existing pipeline. Use a real HTTPS URL that accepts POST JSON (e.g. `https://httpbin.org/post`).
-
-| # | Case | Request | Expected |
-|---|------|---------|----------|
-| 3.1 | Bad pipeline param | `POST /pipelines/bad/subscribers` | **400** |
-| 3.2 | Missing pipeline | `POST /pipelines/<random-uuid>/subscribers` + valid `url` | **404** |
-| 3.3 | Invalid / missing URL | `POST /pipelines/$PIPE_ID/subscribers` `{}` or `{ "url": "///" }` | **400** |
-| 3.4 | Create | `POST /pipelines/$PIPE_ID/subscribers` `{ "url": "https://httpbin.org/post" }` | **201** — save `id` as `SUB_ID` |
-| 3.5 | List | `GET /pipelines/$PIPE_ID/subscribers` | **200** — array of active subscribers |
-| 3.6 | List — missing pipeline | `GET /pipelines/<random-uuid>/subscribers` | **404** |
-| 3.7 | Soft delete | `DELETE /pipelines/$PIPE_ID/subscribers/$SUB_ID` | **204** |
-| 3.8 | List after delete | `GET /pipelines/$PIPE_ID/subscribers` | **200** — `[]` |
-| 3.9 | Delete again | `DELETE` same URL as 3.7 | **404** |
-
-**Create (3.4) example:**
-
-```bash
-curl -s -X POST "$BASE/pipelines/$PIPE_ID/subscribers" \
-  -H "Content-Type: application/json" \
-  -d '{"url":"https://httpbin.org/post"}'
-```
-
----
-
-## 4. Webhooks
-
-Uses pipeline **`source_id`**, not `PIPE_ID`.
-
-| # | Case | Request | Expected |
-|---|------|---------|----------|
-| 4.1 | Unknown source | `POST /webhooks/does-not-exist` + JSON body | **404** |
-| 4.2 | Accepted | `POST /webhooks/demo-src` (match your pipeline’s `source_id`) + JSON | **202** — `job_id`, `status: "pending"`; save `JOB_ID` |
-
-```bash
 curl -s -X POST "$BASE/webhooks/demo-src" -H "Content-Type: application/json" \
   -d '{"msg":"hello"}'
 ```
 
-Poll until the worker finishes (a few seconds):
-
-```bash
-curl -s "$BASE/jobs/$JOB_ID"
-```
-
-Expect `status` → `success`, `result` matching the pipeline `action_type` (e.g. uppercase → `"HELLO"`), and `deliveryAttempts` if subscribers were active.
-
 ---
 
-## 5. Jobs
-
-| # | Case | Request | Expected |
-|---|------|---------|----------|
-| 5.1 | Bad job id | `GET /jobs/not-a-uuid` | **400** |
-| 5.2 | Missing job | `GET /jobs/00000000-0000-4000-8000-000000000099` | **404** |
-| 5.3 | Get job + history | `GET /jobs/$JOB_ID` | **200** — job fields + `deliveryAttempts` array |
-| 5.4 | List all | `GET /jobs` | **200** — up to 100 jobs |
-| 5.5 | Filter by pipeline | `GET /jobs?pipeline_id=$PIPE_ID` | **200** — all rows have that `pipeline_id` |
-| 5.6 | Bad query | `GET /jobs?pipeline_id=not-uuid` | **400** |
-
----
-
-## 6. End-to-end story (minimal order)
-
-1. `GET /health` → `GET /metrics`
-2. `POST /pipelines` → note `PIPE_ID` and `source_id`
-3. `GET /pipelines`, `GET /pipelines/$PIPE_ID`
-4. `PUT /pipelines/$PIPE_ID` (optional)
-5. `POST /pipelines/$PIPE_ID/subscribers` → note `SUB_ID`
-6. `GET /pipelines/$PIPE_ID/subscribers`
-7. `POST /webhooks/<source_id>` → note `JOB_ID`; poll `GET /jobs/$JOB_ID` until `success`
-8. `GET /jobs?pipeline_id=$PIPE_ID`
-9. `DELETE .../subscribers/$SUB_ID` → `GET .../subscribers` empty
-10. `POST /webhooks/<source_id>` again — job succeeds; no delivery to removed subscriber
-11. `DELETE /pipelines/$PIPE_ID` → `GET /pipelines/$PIPE_ID` **404**
-
-Run the **error rows** in §§1–5 anytime to confirm validation and `404`/`409` behavior.
-
----
-
-## Troubleshooting
+## 5. Troubleshooting
 
 | Symptom | Likely cause |
 |---------|----------------|
-| Job stays `pending` | Worker not running or wrong `DATABASE_URL` / DB |
-| Webhook **404** | Wrong `source_id` or pipeline deleted |
-| No `deliveryAttempts` | No active subscribers, or URL failed (see worker logs) |
-| Connection errors | Postgres down; create DB with `npm run db:create` |
+| Cannot open `/demo.html` | API container not running or wrong port |
+| Job stays **`pending`** | Worker container not running or DB unreachable |
+| Webhook **404** | `source_id` does not match any pipeline |
+| No **`deliveryAttempts`** | No active subscriber, or subscriber URL failed (worker logs) |
+| **`npm test`** fails: DB missing | Run Postgres locally and `npm run db:create` — not required for **Docker-only** runtime |
 
 ---
 
 ## See also
 
-- [api.md](api.md) — full API reference  
+- [README.md](../README.md) — **Docker-only run** + project overview  
 - [docker.md](docker.md) — Compose services  
-- [README.md](../README.md) — project overview  
-
-Automated tests: `npm test` (see README).
+- [api.md](api.md) — HTTP reference  
+- Automated tests: `npm test` (see README)

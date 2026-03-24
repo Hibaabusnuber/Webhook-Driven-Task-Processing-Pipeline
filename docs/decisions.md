@@ -33,6 +33,12 @@
 - **Why:** `delivery_attempts` references `subscriber_id`. Hard-deleting subscribers can break referential integrity or force cascading deletes that erase audit history. Keeping the row preserves FK validity and past delivery rows while clearly marking the endpoint as inactive.
 - **Delivery & listing:** Default Sequelize scopes exclude rows with `deleted_at` set, so the worker never POSTs to soft-deleted URLs and API lists only active subscribers.
 
+## Web tester (`public/demo.html`)
+
+- A **single static page** served by Express (`express.static`) so operators can run **`docker compose up`** and immediately open **`http://localhost:3000`** to drive pipelines, webhooks, and jobs without Postman or `curl`.
+- Checklist state lives in **`localStorage`** only (no backend session).
+- Same-origin **`fetch`** avoids CORS configuration.
+
 ## Trade-offs
 
 - `sequelize.sync()` on boot is convenient for `docker compose up` but is not a substitute for versioned migrations in production.
