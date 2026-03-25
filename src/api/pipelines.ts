@@ -6,7 +6,14 @@ import { logger } from '../logger';
 
 const router = Router();
 
-const actionValues = ['uppercase', 'reverse', 'timestamp'] as const;
+const actionValues = [
+  'uppercase',
+  'reverse',
+  'timestamp',
+  'keywords',
+  'hash',
+  'json_transform',
+] as const;
 
 router.post(
   '/',

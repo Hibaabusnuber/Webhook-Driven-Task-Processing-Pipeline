@@ -1,6 +1,12 @@
 import { DataTypes, Model, Optional, Sequelize } from 'sequelize';
 
-export type ActionType = 'uppercase' | 'reverse' | 'timestamp';
+export type ActionType =
+  | 'uppercase'
+  | 'reverse'
+  | 'timestamp'
+  | 'keywords'
+  | 'hash'
+  | 'json_transform';
 
 export interface PipelineAttributes {
   id: string;
@@ -38,7 +44,14 @@ export function initPipeline(sequelize: Sequelize): typeof Pipeline {
         unique: true,
       },
       action_type: {
-        type: DataTypes.ENUM('uppercase', 'reverse', 'timestamp'),
+        type: DataTypes.ENUM(
+          'uppercase',
+          'reverse',
+          'timestamp',
+          'keywords',
+          'hash',
+          'json_transform'
+        ),
         allowNull: false,
       },
       created_at: {
