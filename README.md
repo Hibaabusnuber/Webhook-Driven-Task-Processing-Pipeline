@@ -6,7 +6,7 @@ TypeScript + Express service that ingests webhooks, stores **jobs** in PostgreSQ
 
 - Pipeline CRUD and subscriber management APIs
 - Webhook ingestion that only **persists + enqueues** (never processes inline)
-- Worker-driven processing with `uppercase`, `reverse`, and `timestamp` actions
+- Worker-driven processing: `uppercase`, `reverse`, `timestamp`, `keywords`, `hash`, `json_transform` — see [docs/api.md](docs/api.md#pipeline-actions)
 - Axios-based delivery with exponential backoff (`1s`, `2s`, `4s`) and up to **3** attempts per subscriber
 - Job status API including `delivery_attempts` history
 - Docker Compose stack (`app`, `worker`, `postgres` + named volume)

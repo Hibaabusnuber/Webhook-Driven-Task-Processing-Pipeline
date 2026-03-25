@@ -39,6 +39,21 @@ Aggregate job counts by status.
 
 ---
 
+## Pipeline actions
+
+Each pipeline has an `action_type` field. When a webhook is processed, the worker runs **exactly one** action for that pipeline on the webhook JSON payload. Results are stored on the job and sent to subscribers.
+
+| Value | Behavior |
+|-------|----------|
+| `uppercase` | Recursively uppercases every string in nested objects and arrays. |
+| `reverse` | Recursively reverses each string (characters), leaves non-strings unchanged. |
+| `timestamp` | Adds `_processedAt` (ISO-8601) at the root; if the payload is not a plain object, wraps as `{ value, _processedAt }`. |
+| `keywords` | Expects `{ "msg": "text" }` or a top-level string: lowercase, split on whitespace, remove common stop words (`the`, `is`, `a`, `and`, `of`, `to`, `in`, `for`, `are`); returns an **array of strings**. |
+| `hash` | Computes SHA-256 of `JSON.stringify(payload)`; returns `{ "result": "<64-char hex>" }`. |
+| `json_transform` | Recursively uppercases **object keys** and **string** values; numbers, booleans, and `null` unchanged; walks nested objects and arrays. |
+
+---
+
 ## Pipelines
 
 ### `POST /pipelines`
@@ -51,7 +66,7 @@ Create a pipeline.
 |-------|------|-------------|
 | `name` | string | Human-readable name. |
 | `source_id` | string | Unique webhook key used in `/webhooks/:source_id`. |
-| `action_type` | enum | `uppercase`, `reverse`, or `timestamp`. |
+| `action_type` | enum | One of: `uppercase`, `reverse`, `timestamp`, `keywords`, `hash`, `json_transform` — see [Pipeline actions](#pipeline-actions). |
 
 **Example**
 
