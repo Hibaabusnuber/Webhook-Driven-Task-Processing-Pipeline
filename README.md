@@ -98,14 +98,14 @@ Open **http://localhost:3000/demo.html** the same way.
 
 ## Documentation
 
-| Doc | Description |
-|-----|-------------|
-| [docs/how-to.md](docs/how-to.md) | Web tester walkthrough, browser URLs, troubleshooting |
-| [docs/api.md](docs/api.md) | Endpoint reference + samples |
-| [docs/architecture.md](docs/architecture.md) | System design |
-| [docs/docker.md](docs/docker.md) | Compose services, volumes, optional dev notes |
-| [docs/queue.md](docs/queue.md) | pg-boss lifecycle |
-| [docs/decisions.md](docs/decisions.md) | Technology choices |
+| Doc | Use it for |
+|-----|------------|
+| [docs/how-to.md](docs/how-to.md) | Running Docker and testing with the web UI |
+| [docs/api.md](docs/api.md) | All HTTP endpoints and request/response details |
+| [docs/architecture.md](docs/architecture.md) | How the pieces fit together (diagrams + roles) |
+| [docs/docker.md](docs/docker.md) | Compose setup: services, ports, volumes, env |
+| [docs/queue.md](docs/queue.md) | How pg-boss queues and processes jobs |
+| [docs/decisions.md](docs/decisions.md) | Why key technologies and patterns were chosen |
 
 ## Project layout
 
