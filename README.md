@@ -70,18 +70,11 @@ More detail: [docs/docker.md](docs/docker.md).
 
 ## Manual testing with the web tester
 
-Use the built-in GUI to drive the same flows as [docs/how-to.md](docs/how-to.md) without Postman or `curl`.
+With Compose running, open **http://localhost:3000**. Leave **API base URL** as `http://localhost:3000` unless you use another host/port.
 
-1. With Compose running, open **http://localhost:3000** in a browser.
-2. Leave **API base URL** as `http://localhost:3000` (same origin; change only if you use a tunnel or different port).
-3. Use **Quick GET** for health/metrics/pipelines/jobs.
-4. **Pipelines:** fill name, `source_id`, and `action_type` → **POST**; the returned pipeline `id` is filled into **Pipeline ID** for later steps.
-5. **Subscribers:** set subscriber URL (e.g. `https://httpbin.org/post`) → **POST subscriber**; subscriber `id` is filled for delete.
-6. **Webhooks:** set `source_id` to match the pipeline → **POST webhook**; `job_id` is filled when the response is **202**.
-7. **Jobs:** **GET /jobs/:id** until `status` is `success` (the **worker** container must be running).
-8. Tick items in the **checklist** at the bottom; progress is stored in **localStorage** for this browser.
+Use **Quick GET** for health/metrics/lists; create a **pipeline** (note `source_id`), add a **subscriber** (e.g. httpbin), **POST webhook** with matching `source_id`, then **GET job** until `status` is `success`. The checklist at the bottom uses **localStorage** only.
 
-Full checklist, curl equivalents, and error-case URLs: **[docs/how-to.md](docs/how-to.md)**.
+Step-by-step URLs and troubleshooting: **[docs/how-to.md](docs/how-to.md)**.
 
 ---
 
@@ -103,71 +96,14 @@ Open **http://localhost:3000/demo.html** the same way.
 
 ---
 
-## Example API usage (`curl`)
-
-Create a pipeline:
-
-```bash
-curl -X POST http://localhost:3000/pipelines \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Demo","source_id":"demo-src","action_type":"uppercase"}'
-```
-
-Add a subscriber (replace `:pipeline_id`):
-
-```bash
-curl -X POST http://localhost:3000/pipelines/<pipeline_id>/subscribers \
-  -H "Content-Type: application/json" \
-  -d '{"url":"https://httpbin.org/post"}'
-```
-
-Send a webhook:
-
-```bash
-curl -X POST http://localhost:3000/webhooks/demo-src \
-  -H "Content-Type: application/json" \
-  -d '{"msg":"hello"}'
-```
-
-Poll the job (replace `<job_id>` from the `202` response):
-
-```bash
-curl http://localhost:3000/jobs/<job_id>
-```
-
-## Database migrations
-
-Schema changes are tracked under `migrations/` (Sequelize CLI). With `DATABASE_URL` set:
-
-```bash
-npm run migrate
-```
-
-(`syncModels()` also runs `ADD COLUMN IF NOT EXISTS deleted_at` on `subscribers` so existing Docker volumes pick up soft-delete without a manual migrate.)
-
-## Testing & CI
-
-`tests/api.test.ts` exercises every HTTP route described in [docs/api.md](docs/api.md) (health, metrics, pipelines CRUD, subscribers, webhooks, jobs list/detail, plus an end-to-end job processing check).
-
-**First time (local `npm test`, not inside Docker):** if you see `database "pipeline" does not exist`, create it: `npm run db:create` (Postgres must be running).
-
-```bash
-export DATABASE_URL=postgres://postgres:postgres@localhost:5432/pipeline
-npm run db:create   # once per machine / database
-npm test
-npm run lint
-```
-
-GitHub Actions workflow: [.github/workflows/ci.yml](.github/workflows/ci.yml)
-
 ## Documentation
 
 | Doc | Description |
 |-----|-------------|
-| [docs/how-to.md](docs/how-to.md) | **Web tester** walkthrough + manual checklist + browser URLs |
+| [docs/how-to.md](docs/how-to.md) | Web tester walkthrough, browser URLs, troubleshooting |
 | [docs/api.md](docs/api.md) | Endpoint reference + samples |
 | [docs/architecture.md](docs/architecture.md) | System design |
-| [docs/docker.md](docs/docker.md) | Compose services & volumes |
+| [docs/docker.md](docs/docker.md) | Compose services, volumes, optional dev notes |
 | [docs/queue.md](docs/queue.md) | pg-boss lifecycle |
 | [docs/decisions.md](docs/decisions.md) | Technology choices |
 
