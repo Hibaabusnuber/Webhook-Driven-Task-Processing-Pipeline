@@ -9,6 +9,9 @@ import { Subscriber } from '../src/models/subscriber';
 import { Job } from '../src/models/job';
 import { DeliveryAttempt } from '../src/models/delivery_attempt';
 import { processQueueJob } from '../src/worker/worker';
+import { hashPayload } from '../src/actions/hash';
+import { jsonTransformPayload } from '../src/actions/jsonTransform';
+import { keywordsPayload } from '../src/actions/keywords';
 import { uppercasePayload } from '../src/actions/uppercase';
 import { reversePayload } from '../src/actions/reverse';
 import { timestampPayload } from '../src/actions/timestamp';
@@ -39,6 +42,35 @@ describe('actions', () => {
     const out = timestampPayload({ x: 1 }) as { x: number; _processedAt: string };
     expect(out.x).toBe(1);
     expect(typeof out._processedAt).toBe('string');
+  });
+
+  it('keywords extracts tokens and drops stop words', () => {
+    expect(
+      keywordsPayload({
+        msg: 'webhooks are powerful for async processing in distributed systems',
+      })
+    ).toEqual([
+      'webhooks',
+      'powerful',
+      'async',
+      'processing',
+      'distributed',
+      'systems',
+    ]);
+  });
+
+  it('hash returns sha256 hex of stringified payload', () => {
+    const payload = { a: 1, b: 'x' };
+    const out = hashPayload(payload) as { result: string };
+    expect(out.result).toMatch(/^[a-f0-9]{64}$/);
+    expect(out.result).toBe((hashPayload(payload) as { result: string }).result);
+  });
+
+  it('json_transform uppercases keys and string values', () => {
+    expect(jsonTransformPayload({ name: 'hiba', age: 22 })).toEqual({
+      NAME: 'HIBA',
+      AGE: 22,
+    });
   });
 });
 

@@ -2,14 +2,18 @@
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
-  async up(queryInterface, Sequelize) {
-    await queryInterface.addColumn('subscribers', 'deleted_at', {
-      type: Sequelize.DATE,
-      allowNull: true,
-    });
+  async up(queryInterface) {
+    // Idempotent: syncModels() may already add this column before migrations run.
+    await queryInterface.sequelize.query(`
+      ALTER TABLE subscribers
+      ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
+    `);
   },
 
   async down(queryInterface) {
-    await queryInterface.removeColumn('subscribers', 'deleted_at');
+    await queryInterface.sequelize.query(`
+      ALTER TABLE subscribers
+      DROP COLUMN IF EXISTS deleted_at;
+    `);
   },
 };

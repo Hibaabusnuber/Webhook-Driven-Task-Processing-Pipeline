@@ -1,4 +1,7 @@
 import type { ActionType } from '../models/pipeline';
+import { hashPayload } from '../actions/hash';
+import { jsonTransformPayload } from '../actions/jsonTransform';
+import { keywordsPayload } from '../actions/keywords';
 import { reversePayload } from '../actions/reverse';
 import { timestampPayload } from '../actions/timestamp';
 import { uppercasePayload } from '../actions/uppercase';
@@ -16,6 +19,12 @@ export function processPayload(actionType: ActionType, payload: unknown): unknow
       return reversePayload(payload);
     case 'timestamp':
       return timestampPayload(payload);
+    case 'keywords':
+      return keywordsPayload(payload);
+    case 'hash':
+      return hashPayload(payload);
+    case 'json_transform':
+      return jsonTransformPayload(payload);
     default: {
       const _exhaustive: never = actionType;
       throw new Error(`Unknown action type: ${_exhaustive}`);
